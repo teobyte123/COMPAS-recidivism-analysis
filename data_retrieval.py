@@ -49,3 +49,86 @@ for race in ['African-American', 'Caucasian']:
     subset = df[df['race'] == race]
     print(f"\n{race}:")
     print(pd.crosstab(subset['two_year_recid'], subset['score_text'], normalize='index'))
+
+df.groupby('race')['two_year_recid'].mean()         #average recidivism rate by race
+
+#Phase 3 starts.
+#Data cleaning and filtering based on specific criteria
+df_clean = df[
+    (df['days_b_screening_arrest'] <= 30) &         #screening within 30 days before arrest
+    (df['days_b_screening_arrest'] >= -30) &        #screening within 30 days after arrest
+    (df['is_recid'] != -1) &        #missing data for recidivism
+    (df['c_charge_degree'] != 'O')        #no meaningful data for recidivism
+].copy()
+
+print(f"Original: {len(df)} rows -> After filtering: {len(df_clean)} rows")
+
+features = ['sex', 'age', 'race', 'priors_count', 'c_charge_degree']        #inputs/features searched for by the model
+target = 'two_year_recid'       #what's attempting to be predicted by the model
+
+df_model = df_clean[features + [target]].copy()
+df_model.head()
+
+#Categorical variables
+df_model['sex'] = df_model['sex'].map({'Male': 0, 'Female': 1})
+df_model['c_charge_degree'] = df_model['c_charge_degree'].map({'F': 0, 'M': 1})
+
+df_model = pd.get_dummies(df_model, columns=['race'], drop_first=False)
+
+df_model.head()
+df_model.dtypes
+df_model.isnull().sum()
+
+#Phase 4 starts.
+#Baseline model using logistic regression to predict two-year recidivism
+from sklearn.model_selection import train_test_split
+
+X = df_model.drop(columns=['two_year_recid'])
+y = df_model['two_year_recid']
+
+X_train, X_test, y_train, y_test = train_test_split(
+    X, y, test_size=0.2, random_state=42, stratify=y
+)
+
+print(f"Train: {X_train.shape}, Test: {X_test.shape}")
+
+from sklearn.linear_model import LogisticRegression
+
+model = LogisticRegression(max_iter=1000)
+model.fit(X_train, y_train)
+
+train_acc = model.score(X_train, y_train)
+test_acc = model.score(X_test, y_test)
+print(f"Train accuracy: {train_acc:.3f}")
+print(f"Test accuracy: {test_acc:.3f}")
+
+from sklearn.metrics import classification_report, confusion_matrix
+
+y_pred = model.predict(X_test)
+print(classification_report(y_test, y_pred))
+print(confusion_matrix(y_test, y_pred))
+
+#Inspecting coefficients; to see what the model has learned.
+coefficients = pd.DataFrame({
+    'feature': X_train.columns,
+    'coefficient': model.coef_[0]
+}).sort_values('coefficient', ascending=False)
+
+print(coefficients)
+
+X_train_ref = X_train.drop(columns=['race_Caucasian'])
+X_test_ref = X_test.drop(columns=['race_Caucasian'])
+
+model_ref = LogisticRegression(max_iter=1000)
+model_ref.fit(X_train_ref, y_train)
+
+coefficients_ref = pd.DataFrame({
+    'feature': X_train_ref.columns,
+    'coefficient': model_ref.coef_[0]
+}).sort_values('coefficient', ascending=False)
+
+print(coefficients_ref)
+print(f"Test accuracy: {model_ref.score(X_test_ref, y_test):.3f}")
+
+df_clean.groupby('race')['priors_count'].mean()
+
