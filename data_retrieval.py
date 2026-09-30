@@ -132,3 +132,33 @@ print(f"Test accuracy: {model_ref.score(X_test_ref, y_test):.3f}")
 
 df_clean.groupby('race')['priors_count'].mean()
 
+#Phase 5 starts.
+from sklearn.ensemble import RandomForestClassifier
+
+rf_model = RandomForestClassifier(n_estimators=100, max_depth=6, random_state=42)
+rf_model.fit(X_train, y_train)
+
+train_acc_rf = rf_model.score(X_train, y_train)
+test_acc_rf = rf_model.score(X_test, y_test)
+print(f"Train accuracy: {train_acc_rf:.3f}")
+print(f"Test accuracy: {test_acc_rf:.3f}")
+
+y_pred_rf = rf_model.predict(X_test)
+print(classification_report(y_test, y_pred_rf))
+print(confusion_matrix(y_test, y_pred_rf))
+
+from sklearn.metrics import roc_auc_score
+
+y_proba_lr = model.predict_proba(X_test)[:, 1]
+y_proba_rf = rf_model.predict_proba(X_test)[:, 1]
+
+print(f"Logistic Regression ROC-AUC: {roc_auc_score(y_test, y_proba_lr):.3f}")
+print(f"Random Forest ROC-AUC: {roc_auc_score(y_test, y_proba_rf):.3f}")
+
+importances = pd.DataFrame({
+    'feature': X_train.columns,
+    'importance': rf_model.feature_importances_
+}).sort_values('importance', ascending=False)
+
+print(importances)
+
