@@ -7,3 +7,6 @@ venv/
 # Python bytecode cache
 __pycache__/
 *.pyc
+
+# Trained model artifacts
+models/*.pkl
